@@ -1,25 +1,30 @@
 const cors = require('cors');
 const express = require('express');
 const routes = require('./routes');
+const itemsRoutes = require('./routes/items');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('../swagger');
 
 // Initialize express app
 const app = express();
 
+// CORS
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.set('trust proxy', true);
+
+// Swagger UI with dynamic server url
 app.use('/docs', swaggerUi.serve, (req, res, next) => {
-  const host = req.get('host');           // may or may not include port
-  let protocol = req.protocol;          // http or https
+  const host = req.get('host'); // may or may not include port
+  let protocol = req.protocol;  // http or https
 
   const actualPort = req.socket.localPort;
   const hasPort = host.includes(':');
-  
+
   const needsPort =
     !hasPort &&
     ((protocol === 'http' && actualPort !== 80) ||
@@ -43,13 +48,22 @@ app.use(express.json());
 
 // Mount routes
 app.use('/', routes);
+app.use('/api/v1/items', itemsRoutes);
+
+// Not-found handler
+app.use((req, res, next) => {
+  if (res.headersSent) return next();
+  res.status(404).json({ error: 'Not Found' });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
+  // eslint-disable-next-line no-console
+  console.error(err.stack || err);
+  const status = err.status || 500;
+  res.status(status).json({
     status: 'error',
-    message: 'Internal Server Error',
+    message: err.message || 'Internal Server Error',
   });
 });
 
